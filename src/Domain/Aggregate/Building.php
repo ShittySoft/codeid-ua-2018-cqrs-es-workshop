@@ -21,6 +21,9 @@ final class Building extends AggregateRoot
      */
     private $name;
 
+    /** array<string, null> */
+    private $checkedInUsers = [];
+
     public static function new(string $name) : self
     {
         $self = new self();
@@ -37,6 +40,15 @@ final class Building extends AggregateRoot
 
     public function checkInUser(string $username)
     {
+        if (array_key_exists($username, $this->checkedInUsers)) {
+            throw new \RuntimeException(sprintf(
+                'User "%s" is already checked into "%s" (%s)',
+                $username,
+                $this->name,
+                $this->uuid->toString()
+            ));
+        }
+
         $this->recordThat(DomainEvent\UserCheckedIn::toBuilding(
             $this->uuid,
             $username
@@ -45,6 +57,15 @@ final class Building extends AggregateRoot
 
     public function checkOutUser(string $username)
     {
+        if (! array_key_exists($username, $this->checkedInUsers)) {
+            throw new \RuntimeException(sprintf(
+                'User "%s" is not checked into "%s" (%s)',
+                $username,
+                $this->name,
+                $this->uuid->toString()
+            ));
+        }
+
         $this->recordThat(DomainEvent\UserCheckedOut::ofBuilding(
             $this->uuid,
             $username
@@ -59,12 +80,12 @@ final class Building extends AggregateRoot
 
     protected function whenUserCheckedIn(DomainEvent\UserCheckedIn $checkedIn) : void
     {
-        // Nothing for now
+        $this->checkedInUsers[$checkedIn->username()] = null;
     }
 
     protected function whenUserCheckedOut(DomainEvent\UserCheckedOut $checkedIn) : void
     {
-        // Nothing for now
+        unset($this->checkedInUsers[$checkedIn->username()]);
     }
 
     /**
